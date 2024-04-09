@@ -1,0 +1,13 @@
+[Unit]
+Description=Ollama Service
+After=network-online.target
+
+[Service]
+ExecStart=/usr/local/bin/ollama serve
+User=ollama
+Group=ollama
+Restart=always
+RestartSec=3
+Environment="PATH=/home/llm/.local/bin:/home/llm/miniconda3/condabin:/usr/local/cuda-12.3/bin:/usr/local/sbin:/usr/loca>
+[Install]
+WantedBy=default.target
