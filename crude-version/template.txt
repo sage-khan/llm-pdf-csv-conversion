@@ -1,0 +1,23 @@
+Here is the structure as per which the data must be formatted. This is an example. You have to read the given document and structure it as shown below:
+
+ACCOUNT DETAILS
+
+Account Title, Account Type, Bank Name, Accounting Duration Start, Accounting Duration End, Opening Balance, Closing Balance
+xyz,Bank Statment,abc, 11-2-23, 12-3-23, 123, 25
+
+TRANSACTION DETAILS
+
+Sno, Date, Description, Withdrawal/Debit, Deposits/Credit, Balance
+1, dd-mm-yy, opening balance, , , 123
+2, dd-mm-yy, transaction 1, 100, , 23
+3, dd-mm-yy, transaction 2, , 2, 25
+4, ddmmyy, closing balance, , , 25
+
+RECONCILIATION
+
+Opening Balance, Debit, Credit, Answer, Closing Balance as per Document
+123, -100, 2, 123-100+2 = 25, 25, Accounts reconciled
+
+
+ADDITIONAL INFORMATION
+
