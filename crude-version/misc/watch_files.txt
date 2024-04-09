@@ -1,0 +1,17 @@
+#!/bin/bash
+
+sudo apt-get install ocrmypdf poppler-utils rsync inotify-tools
+
+WATCH_DIR="$HOME/conversion-files"
+
+inotifywait -m -e create -e moved_to "$WATCH_DIR" |
+while read -r directory events filename; do
+    echo "New file detected: $filename"
+    # Call the main processing script or integrate the processing part here
+    ./convert_files.sh
+done
+
+
+
+#Inotify Script: watch_files.sh
+#This script uses inotifywait to watch for new files in ~/conversion-files and processes them as they arrive. This requires the inotify-tools package.

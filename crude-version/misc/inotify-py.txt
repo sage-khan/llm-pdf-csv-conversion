@@ -1,0 +1,45 @@
+#!/bin/bash
+
+INPUT_FOLDER="/srv/dev-disk-by-uuid-281ef326-2aff-405e-b1e4-061cebc27cad/VirtuousAccountants/Itax/File-to-be-converted"
+OUTPUT_FOLDER="/srv/dev-disk-by-uuid-281ef326-2aff-405e-b1e4-061cebc27cad/VirtuousAccountants/Itax/Converted-Files"
+  # Set the output folder name
+
+while true; do
+    # Check for new PDF files in the input folder
+    if [[ -n "$(ls -A $INPUT_FOLDER/*.pdf)" ]]; then
+
+        for pdf_file in $input_folder/*.pdf; do
+            # Ingest the PDF using the Python script
+            python3 ingest.py "$pdf_file"
+
+            # Run the privategpt.py script and save output as CSV
+            csv_output=$(python3 privategpt.py "list all transactions as csv format")
+            csv_filename="${pdf_file%.pdf}.csv"  # Extract base filename
+            echo "$csv_output" > "$OUTPUT_FOLDER/$csv_filename"
+
+            # Move the processed PDF to a different folder (optional)
+            # mv "$pdf_file" "processed-pdfs"
+        done
+
+        # Clear the input folder (if desired)
+        # rm -f $INPUT_FOLDER/*.pdf
+    fi
+
+    # Wait for a short time before checking again
+    sleep 5  # Adjust the sleep interval as needed
+done
+
+#Instructions to use the script:
+
+#Save the script: Save the code as a .sh file (e.g., process_pdfs.sh).
+#Make it executable: Use the command chmod +x process_pdfs.sh.
+#Run the script: Execute the script using ./process_pdfs.sh <input-folder>, replacing <input-folder> with the actual path to your input folder.
+
+#Key points:
+
+#The script continuously monitors the input folder for new PDF files.
+#It processes each PDF using the specified Python scripts.
+#It saves the output CSV files in the designated output folder.
+#You can adjust the sleep interval to control how often it checks for new files.
+#Uncomment the mv command if you want to move processed PDFs to a different folder.
+#Uncomment the rm command if you want to clear the input folder after processing.

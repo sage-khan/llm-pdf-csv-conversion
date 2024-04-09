@@ -1,0 +1,11 @@
+[Unit]
+Description=Convert Files Service
+Wants=convertfiles.timer
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/convert_files.sh
+#User=root
+
+
+##sudo nano /etc/systemd/system/convertfiles.service

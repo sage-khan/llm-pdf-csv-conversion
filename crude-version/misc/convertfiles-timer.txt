@@ -1,0 +1,17 @@
+[Unit]
+Description=Timer for Convert Files Service
+
+[Timer]
+OnBootSec=1min
+OnUnitActiveSec=2min
+Unit=convertfiles.service
+
+[Install]
+WantedBy=timers.target
+
+#sudo nano /etc/systemd/system/convertfiles.timer
+
+#sudo systemctl daemon-reload
+#sudo systemctl enable convertfiles.timer
+#sudo systemctl start convertfiles.timer
+#sudo systemctl list-timers --all

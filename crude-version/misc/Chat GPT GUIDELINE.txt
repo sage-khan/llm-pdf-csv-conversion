@@ -1,0 +1,112 @@
+Script for UBUNTU. It should do following:
+
+#1a. ssh into remote host conversion@192.168.0.110. Make sure you have certificates configured. (Need steps for that also)
+#1b. Check input folder "/srv/dev-disk-by-uuid-281ef326-2aff-405e-b1e4-061cebc27cad/VirtuousAccountants/Itax/File-to-be-converted" which is in remote host conversion@192.168.0.110 for any new document (pdf, txt, HTML, csv, image or whatever) and copy it locally in "~/conversion-files"
+#1c. change directory to ~/conversion-files
+#1d. script should have inotify enabled on ~/conversion-files to check if there is any new file input
+#2a. run ocrmypdf linux commandline tool file and convert it into text searchable pdf named <filename>-ocr.<extension> i.e ocrmypdf --force-ocr --optimize 1 <filename>.pdf <filename>-ocr.<extension>
+#2b. run pdftotext linux commandline tool on the <filename>-ocr.<extension> file and convert it into txt file with same name as original input file name (not the <filename>-ocr.<extension>)
+#2c. run Linux command i.e ollama run mistral "You are an expert in data formatting and structuring. Please read all contents of $(cat <filename>.txt) and structure it into csv style table format as per example given in $(cat ../template.txt)" >> <filename>.csv. the output of the above command is then saved as csv file in same folder which has same name as input doc file name e.g. if input doc name is a1.pdf then output csv name will be a1.csv. it will also save the output as text file i.e. a1.txt if input document is a1.pdf forexample.
+#3. run #2a to #2c in a loop for all files within the local input folder i.e ~/conversion-files
+#4. This csv will be copied /srv/dev-disk-by-uuid-281ef326-2aff-405e-b1e4-061cebc27cad/VirtuousAccountants/Itax/Converted-Files which is in conversion@192.168.0.110 remote host
+#5a.Move all input files that were copied in local folder ~/conversion-files to ~/converted-source-files/<foldername is today's date as dd-mm-yy>
+#5b The remote input folder is then cleared and then is continuously monitored for any other pdf file saved in the input folder.
+
+
+
+To automate the execution of the script whenever there is a new file in the remote input directory, you can create a systemd service combined with a timer on your local machine. This setup will periodically check the remote directory for new files and run the script if new files are found.
+
+Here's how you can set it up:
+
+### Step 1: Create the Script
+
+1. Ensure your script (`convert_files.sh`) is complete and tested. This script should include the SSH command to check the remote directory and process files if any new ones are detected.
+
+### Step 2: Create a systemd Service
+
+1. Create a systemd service file:
+
+    ```bash
+    sudo nano /etc/systemd/system/convertfiles.service
+    ```
+
+2. Add the following content to the service file:
+
+    ```ini
+    [Unit]
+    Description=Convert Files Service
+    Wants=convertfiles.timer
+
+    [Service]
+    Type=oneshot
+    ExecStart=/path/to/convert_files.sh
+    User=your_username
+    ```
+
+    Replace `/path/to/convert_files.sh` with the actual path to your script and `your_username` with your actual username.
+
+3. Save and close the file.
+
+### Step 3: Create a systemd Timer
+
+1. Create a systemd timer file to schedule your service:
+
+    ```bash
+    sudo nano /etc/systemd/system/convertfiles.timer
+    ```
+
+2. Add the following content to the timer file:
+
+    ```ini
+    [Unit]
+    Description=Timer for Convert Files Service
+
+    [Timer]
+    OnBootSec=5min
+    OnUnitActiveSec=15min
+    Unit=convertfiles.service
+
+    [Install]
+    WantedBy=timers.target
+    ```
+
+    This timer will start the service 5 minutes after boot and then every 15 minutes thereafter. Adjust `OnBootSec` and `OnUnitActiveSec` as needed for your use case.
+
+3. Save and close the file.
+
+### Step 4: Enable and Start the Timer
+
+1. Reload the systemd manager configuration:
+
+    ```bash
+    sudo systemctl daemon-reload
+    ```
+
+2. Enable the timer to start on boot:
+
+    ```bash
+    sudo systemctl enable convertfiles.timer
+    ```
+
+3. Start the timer immediately:
+
+    ```bash
+    sudo systemctl start convertfiles.timer
+    ```
+
+4. Check the status of the timer:
+
+    ```bash
+    sudo systemctl list-timers --all
+    ```
+
+    You should see your `convertfiles.timer` listed and scheduled to run at the intervals you specified.
+
+### Additional Considerations
+
+- **Security**: Your script includes SSH commands. Make sure you've set up SSH keys for passwordless login and tested that it works correctly from the command line.
+- **Logging**: You might want to add logging to your script to capture any output or errors for debugging purposes.
+- **Network Dependency**: The script assumes that the network connection to the remote host is always available. You might want to include network checks or retries in your script.
+- **Script Permissions**: Ensure your script is executable (`chmod +x /path/to/convert_files.sh`) and owned by the user specified in the service file.
+
+This setup will ensure that your script runs at regular intervals, checking for and processing new files in the remote directory without manual intervention.

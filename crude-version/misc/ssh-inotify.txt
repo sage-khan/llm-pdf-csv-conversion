@@ -1,0 +1,72 @@
+#!/bin/bash
+
+# Remote server details
+REMOTE_USER="conversion"
+REMOTE_HOST="192.168.0.110"
+REMOTE_INPUT_DIR="/srv/dev-disk-by-uuid-281ef326-2aff-405e-b1e4-061cebc27cad/VirtuousAccountants/Itax/File-to-be-converted"
+REMOTE_PROCESSED_DIR="/srv/dev-disk-by-uuid-281ef326-2aff-405e-b1e4-061cebc27cad/VirtuousAccountants/Itax/processed-input"
+REMOTE_OUTPUT_DIR="/srv/dev-disk-by-uuid-281ef326-2aff-405e-b1e4-061cebc27cad/VirtuousAccountants/Itax/Converted-Files"
+
+# Local directories
+LOCAL_SCRIPT_DIR="$HOME/ProgramFiles/ollama/ollama-ptivateGPT/langchain-python-rag-privategpt"
+LOCAL_SOURCE_DIR="$LOCAL_SCRIPT_DIR/source_documents"
+LOCAL_PROCESSED_DIR="$LOCAL_SCRIPT_DIR/processed-input"
+
+# Ensure local directories exist
+mkdir -p "$LOCAL_SOURCE_DIR" "$LOCAL_PROCESSED_DIR"
+
+# Function to process files
+process_file() {
+    local filename="$1"
+    local extension="${filename##*.}"
+    local basename="${filename%.*}"
+
+    # Copy file from remote to local source directory
+    scp "${REMOTE_USER}@${REMOTE_HOST}:${REMOTE_INPUT_DIR}/${filename}" "${LOCAL_SOURCE_DIR}/"
+
+    # Change directory to the script directory and run Python scripts
+    cd "$LOCAL_SCRIPT_DIR"
+    python3 ingest.py "${LOCAL_SOURCE_DIR}/${filename}"
+
+    # Determine output filename based on input file type
+    local output_csv="${basename}.csv"
+    local output_txt="${basename}.txt"
+
+    # Run processing script and save outputs
+    python3 privategpt.py "list all transactions as csv format" > "${output_csv}"
+    cp "${output_csv}" "${output_txt}"
+
+    # Move processed file to local processed-input directory
+    mv "${LOCAL_SOURCE_DIR}/${filename}" "${LOCAL_PROCESSED_DIR}/"
+
+    # Copy output files to remote output directory
+    scp "${output_csv}" "${output_txt}" "${REMOTE_USER}@${REMOTE_HOST}:${REMOTE_OUTPUT_DIR}/"
+
+    # Move the remote processed file to the remote processed-input directory
+    ssh "${REMOTE_USER}@${REMOTE_HOST}" "mv '${REMOTE_INPUT_DIR}/${filename}' '${REMOTE_PROCESSED_DIR}/'"
+}
+
+# Main loop to monitor the remote input directory for new files
+while true; do
+    # Get list of files from remote input directory
+    IFS=$'\n' files=($(ssh "${REMOTE_USER}@${REMOTE_HOST}" "ls -1 '${REMOTE_INPUT_DIR}'"))
+
+    for file in "${files[@]}"; do
+        echo "Detected new file: $file"
+        process_file "$file"
+    done
+
+    # Sleep before next check
+    sleep 60  # Adjust as needed
+done
+
+
+
+#Write a bash script does following steps:
+#1a. ssh into remote host conversion@192.168.0.110
+#1b. Check input folder /srv/dev-disk-by-uuid-281ef326-2aff-405e-b1e4-061cebc27cad/VirtuousAccountants/Itax/File-to-be-converted which is in remote host conversion@192.168.0.110 for any new document (pdf, txt, HTML, csv, image or whatever) and copy it locally in "~/ProgramFiles/ollama/ollama-ptivateGPT/langchain-python-rag-privategpt/source_documents"
+#2. that pdf should be ingested by python script which is in "~/ProgramFiles/ollama/ollama-ptivateGPT/langchain-python-rag-privategpt/" (simply run python3 ingest.py when you cd into "~/ProgramFiles/ollama/ollama-ptivateGPT/langchain-python-rag-privategpt/")
+#3. then a script in "~/ProgramFiles/ollama/ollama-ptivateGPT/langchain-python-rag-privategpt/" runs as python3 privategpt.py "list all transactions as csv format"
+#4a. the output of the above command is then saved as csv file which has same name as input doc file name e.g. if input doc name is a1.pdf then output csv name will be a1.csv. it will also save the output as text file i.e. a1.txt if input document is a1.pdf forexample.
+#4b. This csv will be saved in /srv/dev-disk-by-uuid-281ef326-2aff-405e-b1e4-061cebc27cad/VirtuousAccountants/Itax/Converted-Files which is in conversion@192.168.0.110 remote host
+#5. The input folder is then cleared and then is continuously monitored for any other pdf file saved in the input folder

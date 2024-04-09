@@ -1,0 +1,3 @@
+cd $HOME/ollama/chatbot-ollama
+
+npm run dev

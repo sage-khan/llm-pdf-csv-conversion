@@ -1,0 +1,71 @@
+#!/bin/bash
+
+conda activate opgpt
+
+# Assigning command line argument to a variable
+INPUT_FOLDER="/srv/dev-disk-by-uuid-281ef326-2aff-405e-b1e4-061cebc27cad/VirtuousAccountants/Itax/File-to-be-converted"
+OUTPUT_FOLDER="/srv/dev-disk-by-uuid-281ef326-2aff-405e-b1e4-061cebc27cad/VirtuousAccountants/Itax/Converted-Files"
+
+# Checking if the input folder path is provided
+if [ -z "$INPUT_FOLDER" ]; then
+    echo "Usage: $0 <input-folder>"
+    exit 1
+fi
+
+# Create the output folder if it doesn't exist
+mkdir -p "$OUTPUT_FOLDER"
+
+# Function to process new PDF files
+process_file() {
+    local filename="/srv/dev-disk-by-uuid-281ef326-2aff-405e-b1e4-061cebc27cad/VirtuousAccountants/Itax/File-to-be-converted"
+    local basename=$(basename "$filename" .pdf)
+
+    # Run the Python script to ingest the PDF
+    python3 ingest.py "$filename"
+
+    # Run the script to generate CSV and save it with the same base name as the input PDF
+    python3 privategpt.py "list all transactions as csv format" > "${OUTPUT_FOLDER}/${basename}.csv"
+
+    # Clear the input folder
+    rm -f "$filename"
+}
+
+# Infinite loop to monitor the input folder for new PDF files
+while true; do
+    # Using inotifywait to monitor the folder for 'close_write' events, which indicates a file write has been completed
+    inotifywait -m -e close_write --format "%f" "$INPUT_FOLDER" | while read FILENAME; do
+        # Check if the modified file is a PDF
+        if [[ "$FILENAME" == *.pdf ]]; then
+            echo "Detected new PDF file: $FILENAME"
+            process_file "${INPUT_FOLDER}/${FILENAME}"
+        fi
+    done
+done
+
+conda deactivate
+
+#This bash script does following steps:
+
+#1. Check a designated folder named input-folder (given in commandline as $1 or sysargv1) for any new pdf file saved in it
+#2. that pdf should be ingested by python script (python3 ingest.py "<input folder name>")
+#3. then a script runs as python3 privategpt.py "list all transactions as csv format"
+#4. the output of the above command is then saved as csv file which has same name as input pdf file name e.g. if input pdf name is a1.pdf then output csv name will be a1.csv.
+#This csv will be saved in a different designated folder named converted-folder
+#5. The input folder is then cleared and then is continuously monitored for any other pdf file saved in the input folder
+
+
+#To accomplish the steps you've outlined, we can create a Bash script that monitors a designated input folder for new PDF files,
+#processes each file through a Python script, and then moves the processed files to a designated output folder.
+#The script will use a combination of shell commands and utilities like inotifywait from the inotify-tools package for monitoring the directory.
+
+#To use this script:
+
+#Save the script in a file, for example, monitor_and_convert.sh.
+#Make the script executable with the command chmod +x monitor_and_convert.sh.
+#Run the script by specifying your input folder as an argument: ./monitor_and_convert.sh /path/to/input-folder.
+#Note:
+
+#The inotifywait command is part of the inotify-tools package, which you may need to install using your distribution's package manager (e.g., apt-get install inotify-tools on Debian/Ubuntu).
+#Ensure that the Python scripts ingest.py and privategpt.py are in the same directory as this Bash script or update the script to include the correct paths to these Python scripts.
+#This script assumes that ingest.py can take the full path to the PDF file as an argument and that privategpt.py outputs the desired CSV content to stdout.
+#The script uses an infinite loop to continuously monitor the input directory. To stop the script, you will need to use a command like Ctrl+C.

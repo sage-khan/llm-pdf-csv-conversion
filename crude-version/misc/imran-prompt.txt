@@ -1,0 +1,14 @@
+"Mistral, I want you to act like an expert in data formatting and structuring and convert a text file $(cat a1.txt) containing an account statement into CSV format data efficiently. The text file may have random spaces between the fields. Here's what I need:
+
+1. Read the text file and extract the relevant information, such as Account Type,Description,Date,Debit Credit and	Balance etc.
+2. Format the extracted information into CSV format with appropriate column headers.
+3. Ensure that the conversion process handles random spaces between the fields effectively to maintain data integrity.
+4. Optimize the process for efficiency to handle large files swiftly."
+
+
+new - ollama run mistral "Mistral, I want you to act like an expert in data formatting and structuring, please read all contents of $(cat a1.txt) and extract the relevant information, such as Account Type,Description,Date,Debit Credit and Balance etc. Structure it into csv style table efficiently. Ensure that the conversion process handles random spaces between the fields effectively to maintain data integrity.Optimize the process for efficiency to handle large files swiftly."
+
+
+
+
+final - ollama run mistral "Act like an expert in data formatting and structuring. Please read all contents of $(cat a1.txt) and structure it into csv style table in all description so that i can be saved in csv table and can be reconciled anytime. Also please take care of random spaces between data and make it efficiently to ensure data integrity"

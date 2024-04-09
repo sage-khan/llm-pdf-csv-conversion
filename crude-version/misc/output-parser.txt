@@ -1,0 +1,277 @@
+### INGEST CODE ###
+
+import os
+from pathlib import Path
+import pypdfium2 as pdfium
+from langchain_community.vectorstores import Chroma
+from langchain_experimental.open_clip import OpenCLIPEmbeddings
+
+####Extract images from each page of a PDF document and save as JPEG files.
+
+def get_images_from_pdf(pdf_path, img_dump_path):
+    """
+    Extract images from each page of a PDF document and save as JPEG files.
+
+    :param pdf_path: A string representing the path to the PDF file.
+    :param img_dump_path: A string representing the path to dummp images.
+    """
+    pdf = pdfium.PdfDocument(pdf_path)
+    n_pages = len(pdf)
+    for page_number in range(n_pages):
+        page = pdf.get_page(page_number)
+        bitmap = page.render(scale=1, rotation=0, crop=(0, 0, 0, 0))
+        pil_image = bitmap.to_pil()
+        pil_image.save(f"{img_dump_path}/img_{page_number + 1}.jpg", format="JPEG")
+
+
+###### Load PDF
+doc_path = Path(__file__).parent / "docs/DDOG_Q3_earnings_deck.pdf"
+img_dump_path = Path(__file__).parent / "docs/"
+rel_doc_path = doc_path.relative_to(Path.cwd())
+rel_img_dump_path = img_dump_path.relative_to(Path.cwd())
+print("pdf index")
+pil_images = get_images_from_pdf(rel_doc_path, rel_img_dump_path)
+print("done")
+vectorstore = Path(__file__).parent / "chroma_db_multi_modal"
+re_vectorstore_path = vectorstore.relative_to(Path.cwd())
+
+####### Load embedding function
+print("Loading embedding function")
+embedding = OpenCLIPEmbeddings(model_name="ViT-H-14", checkpoint="laion2b_s32b_b79k")
+
+####### Create chroma
+vectorstore_mmembd = Chroma(
+    collection_name="multi-modal-rag",
+    persist_directory=str(Path(__file__).parent / "chroma_db_multi_modal"),
+    embedding_function=embedding,
+)
+
+####### Get image URIs
+image_uris = sorted(
+    [
+        os.path.join(rel_img_dump_path, image_name)
+        for image_name in os.listdir(rel_img_dump_path)
+        if image_name.endswith(".jpg")
+    ]
+)
+
+####### Add images
+print("Embedding images")
+vectorstore_mmembd.add_images(uris=image_uris)
+
+
+
+##########################################################################
+
+### OUTPUT PARSER
+from langchain.output_parsers import CommaSeparatedListOutputParser
+from langchain.prompts import PromptTemplate
+from langchain_openai import ChatOpenAI
+from langchain_community.llms import Ollama
+
+output_parser = CommaSeparatedListOutputParser()
+
+format_instructions = output_parser.get_format_instructions()
+prompt = PromptTemplate(
+    template="Write all tables in {bank-statement} in csv form and all transactions in csv format as <date> <transaction-details> <debit> <credit> <balance> .\n{format_instructions}",
+    input_variables=["bank-statement"],
+    partial_variables={"format_instructions": format_instructions},
+)
+
+llm = Ollama(model="llama2")
+
+client=
+bank=
+month=
+year=
+
+#llm.invoke("Write all transactions of {client} in {bank} for the {month} of {year}")
+
+chain = prompt | llm | output_parser
+
+llm.invoke("Write all transactions of {client} in {bank} for the {month} of {year}")
+chain.invoke({"bank-statement": "transactions"})
+
+
+ for s in chain.stream({"bank-statement": "transactions"}):
+    print(s)
+
+
+from langchain.output_parsers.json import SimpleJsonOutputParser
+
+json_prompt = PromptTemplate.from_template(
+    "Return a JSON object of tables in {bank-statement}: {bank-statement}"
+)
+json_parser = SimpleJsonOutputParser()
+json_chain = json_prompt | llm | json_parser
+
+
+list(chain.stream({"bank-statement": "transactions"}))
+
+
+
+###############################################################################
+
+import os
+
+import langchain
+
+from langchain.llms import Ollama
+
+from langchain.prompts import PromptTemplate, HumanMessagePromptTemplate
+
+import llama_index
+
+from llama_index.llms import Ollama # Re-import Ollama under llama_index
+
+from llama_index.storage.storage_context import StorageContext
+
+from llama_index.vector_stores.qdrant import QdrantVectorStore
+
+from llama_index.vectorstores import VectorStoreIndex
+
+
+
+# Connect to LlamaIndex with Qdrant as the vector store
+
+vector_store = QdrantVectorStore(
+
+  collection_name="my_collection", # Replace with your collection name
+
+  qdrant_uri="http://localhost:6333", # Adjust if needed
+
+)
+
+query_engine = VectorStoreIndex(vector_store)
+
+
+
+# Load image documents using SimpleDirectoryReader and form local image paths
+
+image_documents = SimpleDirectoryReader("./table_images/").load_data()
+
+image_documents_with_local_paths = [
+
+  {"text": doc.get("text", ""), "image_url": os.path.join("./table_images/", doc["id"])}
+
+  for doc in image_documents
+
+]
+
+
+
+# Index the image documents with LlamaIndex (using local paths)
+
+query_engine.index_documents(image_documents_with_local_paths)
+
+
+
+# Create Ollama instances for both LlamaIndex and LangChain
+
+llama_index_llm = Ollama(model="facebook/opt-350b") # Specify the model for LlamaIndex
+
+langchain_llm = Ollama(model="facebook/opt-350b") # Same model for LangChain
+
+
+
+# Complete the prompt using LlamaIndex for image context
+
+response_index = llama_index_llm.complete(
+
+  prompt="Compare llama2 with llama1?",
+
+  query_engine=query_engine,
+
+)
+
+
+
+# Build a prompt template for LangChain, incorporating local image paths
+
+image_paths = [doc["image_url"] for doc in image_documents_with_local_paths]
+
+prompt_template = PromptTemplate(
+
+  messages=[
+
+    HumanMessagePromptTemplate(role="system", content="Here are some images:"),
+
+    *[HumanMessagePromptTemplate(role="system", content=path) for path in image_paths],
+
+    HumanMessagePromptTemplate(role="system", content="Compare llama2 with llama1?"),
+
+  ]
+
+)
+
+
+
+# Generate a response using LangChain with the prompt template
+
+response_chain = langchain_llm.run(prompt_template)
+
+
+
+# Print both responses for comparison
+
+print("Response using LlamaIndex:", response_index)
+
+print("Response using LangChain:", response_chain.output)
+
+
+
+import csv
+
+import json
+
+from langchain.llms import OpenAI  # Use OpenAI for output parsing features
+
+
+
+# ... (previous code)
+
+
+
+# Generate responses using both LlamaIndex and LangChain
+
+response_index = llama_index_llm.complete(
+
+    prompt="Compare llama2 with llama1?",
+
+    query_engine=query_engine,
+
+)
+
+response_chain = langchain_llm.run(prompt_template)
+
+
+
+# Parse and save output from LlamaIndex (using OpenAI for parsing)
+
+openai_llm = OpenAI(temperature=0.7)  # Create an OpenAI instance for parsing
+
+parsed_response_index = openai_llm.parse(response_index, output_format="csv")
+
+with open("llama_index_output.csv", "w", newline="") as csvfile:
+
+    writer = csv.writer(csvfile)
+
+    writer.writerows(parsed_response_index)
+
+
+
+# Parse and save output from LangChain (using LangChain's built-in parsing)
+
+parsed_response_chain = langchain_llm.parse(response_chain.output, output_format="json")
+
+with open("langchain_output.json", "w") as jsonfile:
+
+    json.dump(parsed_response_chain, jsonfile)
+
+
+
+# Save HTML output directly from LangChain (assuming it's already in HTML format)
+
+with open("langchain_output.html", "w") as htmlfile:
+
+    htmlfile.write(response_chain.output)
