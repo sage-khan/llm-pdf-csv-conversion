@@ -1,3 +1,10 @@
+#Changes
+#1. We no longer use a dictionary to store the file contents. Instead, we use a list data to store the content directly as rows.
+#2. If a corresponding CSV file exists for a given text file, we directly read its content and append it to data.
+#3. The data list is then converted to a DataFrame, and the DataFrame is saved directly to 'final_output.csv'.
+#4. We've kept the original instructions and text content reading as it was.
+#5. We handle the UnicodeDecodeError by attempting to read the CSV file using ISO-8859-1 encoding after failing to read with utf-8.
+
 import os
 import pandas as pd
 import csv
@@ -62,3 +69,7 @@ def process_files(directory):
 # Example usage
 directory = './'
 process_files(directory)
+
+
+
+
